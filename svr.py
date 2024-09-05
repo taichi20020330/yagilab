@@ -48,22 +48,24 @@ variable_list.extend(step_name_list)
 #variable_list.extend(dif_name_list)
 variable_list.extend(dot_name_list)
 
-# 統計量のリスト
-statistics_list = ['max', 'min', 'mean', 'var', '25th percentile', '50th percentile', '75th percentile',
-                   'freezing index', 'central frequency', 'dominant frequency', 'amplitude', 'relative amplitude']
-#acti_list = ['Mean_neck', 'Var_neck', 'Cv_neck', 'Mean_waist', 'Var_waist', 'Cv_waist', 'Mean_diff', 'Var_diff', 'Cv_diff']
-#acti_list = ['Mean_neck', 'Mean_waist', 'Mean_diff']
-#acti_list = ['Mean_neck', 'Mean_waist']
-#acti_list = ['Mean_neck', 'Var_neck', 'Mean_waist', 'Var_waist']
-#acti_list = ['Mean_neck', 'Mean_waist']
-acti_list = ['Mean_neck']
+# # 統計量のリスト
+# statistics_list = ['max', 'min', 'mean', 'var', '25th percentile', '50th percentile', '75th percentile',
+#                    'freezing index', 'central frequency', 'dominant frequency', 'amplitude', 'relative amplitude']
+# #acti_list = ['Mean_neck', 'Var_neck', 'Cv_neck', 'Mean_waist', 'Var_waist', 'Cv_waist', 'Mean_diff', 'Var_diff', 'Cv_diff']
+# #acti_list = ['Mean_neck', 'Mean_waist', 'Mean_diff']
+# #acti_list = ['Mean_neck', 'Mean_waist']
+# #acti_list = ['Mean_neck', 'Var_neck', 'Mean_waist', 'Var_waist']
+# #acti_list = ['Mean_neck', 'Mean_waist']
+# acti_list = ['Mean_neck']
 
-# 特徴量　のリスト
-feature_names = []
+# # 特徴量　のリスト
+# feature_names = []
 
-for statistics in statistics_list:
-    for variable in variable_list:
-       feature_names.append(variable + " " + statistics)
+# for statistics in statistics_list:
+#     for variable in variable_list:
+#        feature_names.append(variable + " " + statistics)
+
+feature_names = ['zure_x', 'zure_y', 'zure_z']
 
 #feature_names.extend(acti_list)
 
@@ -76,7 +78,7 @@ for statistics in statistics_list:
 #df = pd.read_csv("csv\\list_cut_flt.csv", skiprows = 0)
 #edited
 ## ここに特徴量全部ぶち込んでいく
-df = pd.read_csv("csv/list_cut_flt_2023_withangle.csv", skiprows = 0)
+df = pd.read_csv("features/list_cut_zure.csv", skiprows = 0)
 
 
 df = df[df['group'] == 1]
@@ -107,7 +109,7 @@ df = df.reset_index(drop=True)
 
 #edited
 # updrs (~108) いじらなくてよい　目的の値
-df_updrs_list = pd.read_csv("csv/updrs_list_2023.csv", skiprows = 0)
+df_updrs_list = pd.read_csv("target/updrs_list.csv", skiprows = 0)
 
 #tone07-1を抜く
 df_updrs_list = df_updrs_list[df_updrs_list['ID'] != 'tone007-1']
