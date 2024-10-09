@@ -9,15 +9,12 @@ from sklearn.svm import SVC
 
 
 # 固有の変数設定
-DATA_FILE_PATH = "features/list_cut_flt_2023_withangle.csv"
-EXCLUDE_IDS = ['tone007-1', 'ex1-01a', 'ex1-01b', 'ex1-02a', 'ex1-02b', 
-                'ex1-03a', 'ex1-03b', 'ex1-04a', 'ex1-04b']
+DATA_FILE_PATH = "features/extracted_features.csv"
+EXCLUDE_IDS = []
 
 # 使用する変数リストと統計量
-variable_list = ['LeftFootIMU_acc_x', 'LeftFootIMU_acc_y', 'LeftFootIMU_acc_z',
-                    'LeftLowerLegIMU_acc_x', 'LeftLowerLegIMU_acc_y', 'LeftLowerLegIMU_acc_z']
-
-statistics_list = ['max', 'min', 'mean', 'var', '25th percentile', '50th percentile', '75th percentile']
+variable_list = ['x_acc', 'y_acc', 'z_acc']
+statistics_list = ['sum_values', 'median', 'mean', 'length', 'standard_deviation', 'variance', 'root_mean_square', 'maximum', 'absolute_maximum', 'minimum']
 
 # データの前処理
 def preprocess_data(file_path, exclude_ids, feature_names):
@@ -78,7 +75,7 @@ def evaluate_model(Y_test, Y_pred, acc_list, pre_list, rec_list, f1_list):
 # メイン処理
 def main():
     
-    feature_names = [f"{var} {stat}" for stat in statistics_list for var in variable_list]
+    feature_names = [f"{var}__{stat}" for stat in statistics_list for var in variable_list]
 
     # データの前処理
     parkinson_df, parkinson_target_data = preprocess_data(DATA_FILE_PATH, EXCLUDE_IDS, feature_names)
@@ -104,7 +101,6 @@ def main():
         evaluate_model(Y_test, Y_pred, acc_list, pre_list, rec_list, f1_list)
 
     # 結果を表示（指定されたフォーマット）
-    print(format(np.mean(num_components_list), '.3f'))
     print(format(np.mean(acc_list), '.3f') + "±" + format(np.std(acc_list), '.3f') 
           + "(" + format(np.min(acc_list), '.3f') + "-" + format(np.max(acc_list), '.3f') + ")")
     print(format(np.mean(pre_list), '.3f') + "±" + format(np.std(pre_list), '.3f') 
