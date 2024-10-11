@@ -9,7 +9,7 @@ from sklearn.svm import SVC
 
 
 # 固有の変数設定
-DATA_FILE_PATH = "features/extracted_features.csv"
+DATA_FILE_PATH = "features/extracted_features_EFFP.csv"
 EXCLUDE_IDS = []
 
 # 使用する変数リストと統計量
