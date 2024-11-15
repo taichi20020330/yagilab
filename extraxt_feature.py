@@ -6,6 +6,16 @@ from collections import namedtuple
 import os
 import re
 
+base_input_folder = 'data/two_neck_dataset/'
+base_output_folder = 'features'
+subfolders = ['parkin', 'normal']
+output_file_name =  'extract_features.csv'
+input_file_name = '*.csv'
+all_results = []
+group_nums = []
+IDs = []
+statistic = ['x_acc', 'y_acc', 'z_acc']
+
 def check_group(csv_files):
     group_nums = []
     for file in csv_files:
@@ -30,15 +40,7 @@ def check_ID(csv_files):
         transformed_names.append(transformed_name)
     return transformed_names
 
-base_input_folder = 'data/two_neck_dataset/'
-base_output_folder = 'features'
-subfolders = ['parkin', 'normal']
-output_file_name =  'extract_features.csv'
-input_file_name = '*.csv'
-all_results = []
-group_nums = []
-IDs = []
-statistic = ['x_acc', 'y_acc', 'z_acc']
+
 
 def check_group(csv_files):
     for file in csv_files:
@@ -160,12 +162,14 @@ def calculate_frequency_features(time_series_data, fs=100):
         'percentile75': percentile75
     }
 
-
-
 def save_features_to_csv(features, output_features_file):
     features.insert(0, 'group', group_nums)
     features.insert(0, 'ID', IDs)
     features.to_csv(output_features_file, index = False)
+
+
+
+##################################################
 
 for subfolder in subfolders:
     input_folder_path = os.path.join(base_input_folder, subfolder)
