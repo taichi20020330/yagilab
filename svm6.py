@@ -9,7 +9,7 @@ from sklearn.svm import SVC
 
 
 # 固有の変数設定
-DATA_FILE_PATH = "features/extracted_features.csv"
+DATA_FILE_PATH = "features/extracted_features_EFFP.csv"
 EXCLUDE_IDS = []
 
 # 使用する変数リストと統計量
@@ -19,11 +19,12 @@ spectal_feature_list = ['freezing_index', 'central_frequency','dominant_frequenc
 parcentile_list = ['percentile25', 'percentile50', 'percentile75']
 
 # データの前処理
-def preprocess_data(file_path, exclude_ids, feature_names):
+def preprocess_data(file_path, exclude_ids):
     df = pd.read_csv(file_path, skiprows=0)
     for exclude_id in exclude_ids:
         df = df[df['ID'] != exclude_id]
     df = df.reset_index(drop=True)
+    feature_names = get_features_name_from_csv(df)
     
     parkinson_target_data = df['group']
     parkinson_df = df.loc[:, feature_names]
@@ -81,7 +82,7 @@ def main():
     feature_names = [f"{var}__{stat}" for stat in statistics_list  + parcentile_list for var in variable_list] 
 
     # データの前処理
-    parkinson_df, parkinson_target_data = preprocess_data(DATA_FILE_PATH, EXCLUDE_IDS, feature_names)
+    parkinson_df, parkinson_target_data = preprocess_data(DATA_FILE_PATH, EXCLUDE_IDS)
 
     # 評価結果のリスト
     acc_list, pre_list, rec_list, f1_list = [], [], [], []
