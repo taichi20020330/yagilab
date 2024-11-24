@@ -18,6 +18,47 @@ output_folder_name =  'graph'
 input_file_name = '*.csv'
 statistic = ['x_acc', 'y_acc', 'z_acc']
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+def analyze_frequency_spectrum(df,sampling_rate=100):
+    # z軸加速度データの取得
+    acceleration_data = df['z_acc'].values - df['z_acc'].loc[0]
+    
+    # サンプル数
+    n_samples = len(acceleration_data)
+    
+    # フーリエ変換
+    fft_result = np.fft.fft(acceleration_data)
+    
+    # 周波数成分の強度を計算（絶対値）
+    fft_magnitude = np.abs(fft_result)
+    
+    # 周波数軸の計算
+    freqs = np.fft.fftfreq(n_samples, d=1/sampling_rate)
+    
+    # 正の周波数成分のみを取得
+    positive_freqs = freqs[1:n_samples // 2]
+    positive_magnitude = fft_magnitude[1:n_samples // 2]
+    
+    # 極大値（ピーク）を検出
+    peaks, _ = find_peaks(positive_magnitude, height=np.max(positive_magnitude) * 0.3)  # 高さの閾値を調整可能
+    
+    # グラフのプロット
+    plt.figure(figsize=(12, 6))
+    plt.plot(positive_freqs, positive_magnitude, color='blue', label="Frequency Spectrum")
+    plt.scatter(positive_freqs[peaks], positive_magnitude[peaks], color='red', label="Peaks", zorder=5)
+    for peak in peaks:
+        plt.text(positive_freqs[peak], positive_magnitude[peak], f"{positive_freqs[peak]:.2f} Hz", 
+                 color="red", fontsize=10, ha="center", va="bottom")
+    plt.title("Frequency Spectrum of Z-Acceleration with Peaks")
+    plt.xlabel("Frequency (Hz)")
+    plt.ylabel("Amplitude")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+
 def extract_local_maxima(signal_v):
     # 基準値を取得
     reference_value = signal_v.iloc[0]
@@ -128,12 +169,5 @@ for subfolder in subfolders:
     for file in csv_files:
         output_file_name = file.split('/')[-1].replace('.csv', '.png')
         output_file_path = os.path.join(output_folder_path, output_file_name)
-        df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'], skiprows=500)
-
-        kyokudai = extract_local_maxima(df['z_acc'])
-        # 基準値の取得（index=0の最初の値）
-        # reference_value = df['z_acc'].iloc[0]
-        # # 基準値との差を計算し、絶対値化
-        # distance_from_reference = (df['z_acc'] - reference_value).abs().values
-        # pointed_graph = find_change_point(kyokudai, 4)
-        # save_graph_to_png(pointed_graph, output_file_path)
+        neko_df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
+        analyze_frequency_spectrum(neko_df)
