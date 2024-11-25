@@ -9,6 +9,8 @@ from ruptures.metrics import precision_recall
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 from scipy.interpolate import interp1d
+from scipy import interpolate
+
 
 
 base_input_folder = 'data/two_neck_dataset/'
@@ -17,6 +19,8 @@ subfolders = ['parkin', 'normal']
 output_folder_name =  'graph'
 input_file_name = '*.csv'
 statistic = ['x_acc', 'y_acc', 'z_acc']
+skip_point = 1000
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -57,48 +61,7 @@ def analyze_frequency_spectrum(df,sampling_rate=100):
     plt.legend()
     plt.grid(True)
     plt.show()
-
-
-def extract_local_maxima(signal_v):
-    # 基準値を取得
-    reference_value = signal_v.iloc[0]
-    # 基準値との差を計算し、絶対値化
-    distance_from_reference = (signal_v - reference_value).abs()
-    
-    # 時間と絶対値をデータフレーム化
-    abs_dict = dict(time=signal_v.index, value=distance_from_reference.values)
-    abs_df = pd.DataFrame(abs_dict)
-    
-    # # 極大値を取得
-    # peak_indices, _ = find_peaks(abs_df['value'])
-    # peak_times = abs_df['time'].iloc[peak_indices].values
-    # peak_values = abs_df['value'].iloc[peak_indices].values
-
-    # # 曲線補間 (スプライン補間)
-    # interpolation_func = interp1d(
-    #     peak_times, peak_values, kind='cubic', fill_value="extrapolate"
-    # )
-    # interpolated_time = np.linspace(abs_df['time'].min(), abs_df['time'].max(), 500)
-    # interpolated_values = interpolation_func(interpolated_time)
-    
-    # # プロット
-    # plt.figure(figsize=(12, 6))
-    # plt.plot(abs_df['time'], abs_df['value'], label="Absolute Distance", color='blue')
-    # plt.scatter(peak_times, peak_values, color='red', label="Local Maxima")
-    # plt.plot(interpolated_time, interpolated_values, label="Interpolated Curve", color='green', linestyle='--')
-    # plt.title("Local Maxima and Interpolated Curve")
-    # plt.xlabel("Time")
-    # plt.ylabel("Absolute Distance from Reference")
-    # plt.legend()
-    # plt.grid()
-    # plt.show()
-
-
-    # 極大値のインデックスを取得
-    # peal_dict = dict(time = peak_indices, value = peak_values)
-    # peaks_df = pd.DataFrame(peal_dict)
-    # plot_signal_with_maxima_and_curve(signal_v, peaks_df)
-    # return peaks_df
+    return max(positive_freqs[peaks])
     
 
 def plot_signal_with_maxima_and_curve(signal_v, peaks_df):
@@ -128,33 +91,92 @@ def plot_signal_with_maxima_and_curve(signal_v, peaks_df):
     plt.grid()
     plt.show()
 
-def find_change_point(signal_v, n_bkps):
+def find_change_point(signal_v, n_bkps, isPoint):
     # コスト関数の設定
     model = "normal"
-    # アルゴの設定と学習
     algo = rpt.Dynp(model=model).fit(signal_v)
-    # 変化点の検出
     my_bkps = algo.predict(n_bkps=n_bkps)
-    # plot
-    rpt.display(signal_v, my_bkps, figsize=(12, 9))
-    return plt
+    # rpt.display(signal_v, my_bkps, figsize=(12, 9))
+    if isPoint:
+        return (my_bkps[0] + my_bkps[1]) / 2
+    else:
+        return my_bkps
 
-def make_graph(df, output_file_path):
+
+def plot_curve(df, output_file_path, peakHeltz):
+    df = df - df.iloc[0]
+
+    period = 1 / peakHeltz * 100 * 2   # 2Hzの周期（0.5秒間隔）
+    times = np.arange(0, df.index[-1], period)  # df.indexの最終値までの0.5秒刻み
+
     # グラフのプロット
     plt.figure(figsize=(10, 6))
-    plt.plot(df.index, df['x_acc'], label='x_acc', color='blue')
-    plt.plot(df.index, df['y_acc'], label='y_acc', color='green')
-    plt.plot(df.index, df['z_acc'], label='z_acc', color='red')
+    plt.plot(df.index, df['z_acc'], label='z_acc', color='green')
+
+    max_points_x = []
+    max_points_y = []
+
+
+    # 最大値を取る点をプロット
+    for start_time in times:
+        end_time = start_time + period
+        # この期間のデータを取得
+        mask = (df.index >= start_time) & (df.index < end_time)
+        period_data = df[mask]
+        
+        # z_accの最大値とそのインデックスを取得
+        if not period_data.empty:
+            max_index = period_data['z_acc'].idxmax()  # 最大値のインデックス
+            max_value = period_data['z_acc'].max()  # 最大値
+            
+            # 最大値をプロット
+            plt.scatter(max_index, max_value, color='C1', s=50, zorder=5)
+            
+            # 最大値の座標をリストに追加
+            max_points_x.append(max_index)
+            max_points_y.append(max_value)
+    
+    # スプライン補完を使って滑らかな曲線を描く
+    if max_points_x:
+        # 補完のためのスプライン関数を作成
+        spline = interpolate.CubicSpline(max_points_x, max_points_y)
+
+        # 補完曲線を描画するための新しいx値を生成
+        new_x = np.linspace(min(max_points_x), max(max_points_x), 500)
+        new_y = spline(new_x)
+
+        # 補完曲線を描画
+        plt.plot(new_x, new_y, color='orange', label='Spline Interpolation', linewidth=2)
+
+
 
     # グラフのタイトルとラベル
-    plt.title('Acceleration Data')
+    plt.title('Acceleration Data with 2Hz Vertical Lines')
     plt.xlabel('Time (index)')
     plt.ylabel('Acceleration')
     plt.legend()
-    plt.grid()
+    plt.grid(True)
 
-    save_graph_to_png(devided_plt, output_file_path)
+    # グラフを表示
+    plt.show()
 
+    # save_graph_to_png(devided_plt, output_file_path)
+
+def make_graph(df, change_point, start_end, output_file_path):
+    df = df - df.iloc[0]
+    start_point = start_end[0]
+    end_point = start_end[1]
+    plt.figure(figsize=(10, 6))
+    plt.plot(df.index[start_point:end_point], df['z_acc'][start_point:end_point], label='z_acc', color='green')
+    plt.plot(df.index[start_point:end_point], df['y_acc'][start_point:end_point], label='z_acc', color='red')
+    plt.plot(df.index[start_point:end_point], df['x_acc'][start_point:end_point], label='z_acc', color='blue')
+    plt.axvline(change_point + skip_point, color="C1", lw=2)
+
+    plt.xlabel('Time (index)')
+    plt.ylabel('Acceleration')
+    plt.legend()
+    plt.grid(True)
+    save_graph_to_png(plt, output_file_path)
 
 def save_graph_to_png(plt, output_file_path):
     # グラフを保存
@@ -169,5 +191,12 @@ for subfolder in subfolders:
     for file in csv_files:
         output_file_name = file.split('/')[-1].replace('.csv', '.png')
         output_file_path = os.path.join(output_folder_path, output_file_name)
-        neko_df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
-        analyze_frequency_spectrum(neko_df)
+        filtered_df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'], skiprows=skip_point, skipfooter=1000)
+        df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
+        # peakHeltz = analyze_frequency_spectrum(neko_df)
+        # plot_curve(neko_df, output_file_path, peakHeltz)
+        change_point = find_change_point(filtered_df, 2, True)
+        start_end = find_change_point(df, 2, False)
+        make_graph(df, change_point, start_end, output_file_path)
+
+
