@@ -6,40 +6,39 @@ from collections import namedtuple
 import os
 import re
 
-base_input_folder = 'data/two_neck_dataset/'
+base_input_folder = 'data/bw_clip/'
 base_output_folder = 'features'
 subfolders = ['parkin', 'normal']
-output_file_name =  'extract_features.csv'
+output_file_name =  'extracted_features.csv'
 input_file_name = '*.csv'
 all_results = []
 group_nums = []
 IDs = []
 statistic = ['x_acc', 'y_acc', 'z_acc']
 
-def check_group(csv_files):
-    group_nums = []
-    for file in csv_files:
-        # 'normal' を含む場合は 1、それ以外は 0 を追加
-        if 'normal' in file:
-            group_nums.append(1)
-        else:
-            group_nums.append(0)
-    return group_nums
+# def check_group(csv_files):
+#     group_nums = []
+#     for file in csv_files:
+#         # 'normal' を含む場合は 1、それ以外は 0 を追加
+#         if 'normal' in file:
+#             group_nums.append(1)
+#         else:
+#             group_nums.append(0)
+#     return group_nums
 
-def check_ID(csv_files):
-    transformed_names = []
-    for file in csv_files:
-        # 2種類のファイルパターンに基づいて名前を変換
-        if re.match(r"^\d+_neck\d+_clipout", file):
-            transformed_name = re.sub(r"(_neck)(\d)(_clipout)", r"-\2", file)
-        elif re.match(r"^[a-zA-Z]+\d+_neck\d+_clipout", file):
-            transformed_name = re.sub(r"(_neck)(\d)(_clipout)", r"-\2", file)
-        else:
-            # パターンに一致しない場合はファイル名をそのまま追加
-            transformed_name = file
-        transformed_names.append(transformed_name)
-    return transformed_names
-
+# def check_ID(csv_files):
+#     transformed_names = []
+#     for file in csv_files:
+#         # 2種類のファイルパターンに基づいて名前を変換
+#         if re.match(r"^\d+_neck\d+_clipout", file):
+#             transformed_name = re.sub(r"(_neck)(\d)(_clipout)", r"-\2", file)
+#         elif re.match(r"^[a-zA-Z]+\d+_neck\d+_clipout", file):
+#             transformed_name = re.sub(r"(_neck)(\d)(_clipout)", r"-\2", file)
+#         else:
+#             # パターンに一致しない場合はファイル名をそのまま追加
+#             transformed_name = file
+#         transformed_names.append(transformed_name)
+#     return transformed_names
 
 
 def check_group(csv_files):

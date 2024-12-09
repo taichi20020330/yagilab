@@ -15,6 +15,7 @@ from scipy import interpolate
 
 base_input_folder = 'data/two_neck_dataset/'
 base_output_folder = 'graph'
+csv_base_output_folder = 'data/clipout'
 subfolders = ['parkin', 'normal']
 output_folder_name =  'graph'
 input_file_name = '*.csv'
@@ -96,17 +97,17 @@ def find_change_point(signal_v, n_bkps, isPoint):
     model = "normal"
     algo = rpt.Dynp(model=model).fit(signal_v)
     my_bkps = algo.predict(n_bkps=n_bkps)
-    # rpt.display(signal_v, my_bkps, figsize=(12, 9))
+    rpt.display(signal_v, my_bkps, figsize=(12, 9))
     if isPoint:
-        return (my_bkps[0] + my_bkps[1]) / 2
+        return int((my_bkps[0] + my_bkps[1]) / 2)
     else:
         return my_bkps
 
 
-def plot_curve(df, output_file_path, peakHeltz):
+def plot_curve(df, output_folder_path, file_name,  peakHeltz):
     df = df - df.iloc[0]
 
-    period = 1 / peakHeltz * 100 * 2   # 2Hzの周期（0.5秒間隔）
+    period = 1 / peakHeltz * 100   # 2Hzの周期（0.5秒間隔）
     times = np.arange(0, df.index[-1], period)  # df.indexの最終値までの0.5秒刻み
 
     # グラフのプロット
@@ -150,6 +151,7 @@ def plot_curve(df, output_file_path, peakHeltz):
 
 
 
+
     # グラフのタイトルとラベル
     plt.title('Acceleration Data with 2Hz Vertical Lines')
     plt.xlabel('Time (index)')
@@ -160,9 +162,9 @@ def plot_curve(df, output_file_path, peakHeltz):
     # グラフを表示
     plt.show()
 
-    # save_graph_to_png(devided_plt, output_file_path)
+    save_graph_to_png(plt, output_folder_path, file_name, )
 
-def make_graph(df, change_point, start_end, output_file_path):
+def make_graph(df, change_point, start_end, output_folder_path, file_name):
     df = df - df.iloc[0]
     start_point = start_end[0]
     end_point = start_end[1]
@@ -176,27 +178,58 @@ def make_graph(df, change_point, start_end, output_file_path):
     plt.ylabel('Acceleration')
     plt.legend()
     plt.grid(True)
-    save_graph_to_png(plt, output_file_path)
+    save_graph_to_png(plt,  output_folder_path, file_name)
 
-def save_graph_to_png(plt, output_file_path):
+def save_csv_slice(df, start, end, statistic, folder_path, file_suffix):
+    df_slice = df.loc[start:end, statistic].reset_index(drop=True)
+    csv_output_file_path = os.path.join(folder_path, file_name + '_' + file_suffix + '.csv')
+    df_slice.to_csv(csv_output_file_path, index = False)
+
+def devide_graph(df, change_point, start_end, csv_output_folder_path, file_name):
+    # 1. go_df, back_dfの作成
+    # 1.5 ファイル名にgoかbackををつける
+    # 2. それぞれのグラフをpngに保存
+    # 3. それぞれのグラフをcsvに保存
+    start_point = start_end[0]
+    end_point = start_end[1]
+    plt.figure(figsize=(10, 6))
+
+    save_csv_slice(df, start_point, change_point, statistic, csv_output_folder_path, 'go')
+    save_csv_slice(df, change_point + 1, end_point, statistic, csv_output_folder_path, 'back')
+
+    plt.plot(df.index[start_point:end_point], df['z_acc'][start_point:end_point], label='z_acc', color='green')
+    plt.plot(df.index[start_point:end_point], df['y_acc'][start_point:end_point], label='z_acc', color='red')
+    plt.plot(df.index[start_point:end_point], df['x_acc'][start_point:end_point], label='z_acc', color='blue')
+    plt.axvline(change_point + skip_point, color="C1", lw=2)
+
+    save_graph_to_png(plt, output_folder_path, file_name)
+
+
+def save_graph_to_png(plt,  output_folder_path, file_name):
     # グラフを保存
+    file_name += '.png'
+    output_file_path = os.path.join(output_folder_path, file_name)
     plt.savefig(output_file_path)
 
 
 for subfolder in subfolders:
     input_folder_path = os.path.join(base_input_folder, subfolder)
     output_folder_path = os.path.join(base_output_folder, subfolder)
+    csv_output_folder_path = os.path.join(csv_base_output_folder, subfolder)
     csv_files = glob.glob(os.path.join(input_folder_path, input_file_name))
     
     for file in csv_files:
-        output_file_name = file.split('/')[-1].replace('.csv', '.png')
-        output_file_path = os.path.join(output_folder_path, output_file_name)
+        file_name = os.path.splitext(os.path.basename(file))[0]
+        # output_file_path = os.path.join(output_folder_path, file_name)
         filtered_df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'], skiprows=skip_point, skipfooter=1000)
         df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
-        # peakHeltz = analyze_frequency_spectrum(neko_df)
-        # plot_curve(neko_df, output_file_path, peakHeltz)
-        change_point = find_change_point(filtered_df, 2, True)
-        start_end = find_change_point(df, 2, False)
-        make_graph(df, change_point, start_end, output_file_path)
+        # peakHeltz = analyze_frequency_spectrum(df)
+        # plot_curve(df, output_folder_path, file_name, peakHeltz)
+        # change_point = find_change_point(filtered_df, 2, True)
+        change_point = find_change_point(df, 7, False)
+
+        # start_end = find_change_point(df, 2, False)
+        # make_graph(df, change_point, start_end, output_folder_path, file_name)
+        # devide_graph(df, change_point, start_end, csv_output_folder_path, file_name)
 
 
