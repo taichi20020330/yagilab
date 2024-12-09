@@ -9,22 +9,22 @@ from sklearn.svm import SVC
 
 
 # 固有の変数設定
-DATA_FILE_PATH = "features/extracted_features_EFFP.csv"
+DATA_FILE_PATH = "features/extracted_features.csv"
 EXCLUDE_IDS = []
 
 # 使用する変数リストと統計量
 variable_list = ['x_acc', 'y_acc', 'z_acc']
-statistics_list = ['sum_values', 'median', 'mean', 'length', 'standard_deviation', 'variance', 'root_mean_square', 'maximum', 'absolute_maximum', 'minimum']
+# statistics_list = ['sum_values', 'median', 'mean', 'length', 'standard_deviation', 'variance', 'root_mean_square', 'maximum', 'absolute_maximum', 'minimum']
+statistics_list = ['max', 'min', 'mean', 'median', 'std', 'var', 'sum']
 spectal_feature_list = ['freezing_index', 'central_frequency','dominant_frequency','amplitude','relative_amplitude']
 parcentile_list = ['percentile25', 'percentile50', 'percentile75']
 
 # データの前処理
-def preprocess_data(file_path, exclude_ids):
+def preprocess_data(file_path, exclude_ids, feature_names):
     df = pd.read_csv(file_path, skiprows=0)
     for exclude_id in exclude_ids:
         df = df[df['ID'] != exclude_id]
     df = df.reset_index(drop=True)
-    feature_names = get_features_name_from_csv(df)
     
     parkinson_target_data = df['group']
     parkinson_df = df.loc[:, feature_names]
@@ -79,10 +79,10 @@ def evaluate_model(Y_test, Y_pred, acc_list, pre_list, rec_list, f1_list):
 def main():
     
     # feature_names = [f"{var}__{stat}" for stat in statistics_list for var in variable_list]
-    feature_names = [f"{var}__{stat}" for stat in statistics_list  + parcentile_list for var in variable_list] 
+    feature_names = [f"{var}__{stat}" for stat in statistics_list  + parcentile_list + spectal_feature_list for var in variable_list] 
 
     # データの前処理
-    parkinson_df, parkinson_target_data = preprocess_data(DATA_FILE_PATH, EXCLUDE_IDS)
+    parkinson_df, parkinson_target_data = preprocess_data(DATA_FILE_PATH, EXCLUDE_IDS, feature_names)
 
     # 評価結果のリスト
     acc_list, pre_list, rec_list, f1_list = [], [], [], []
