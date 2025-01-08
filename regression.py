@@ -1,4 +1,6 @@
 import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import Lasso, ElasticNet, LinearRegression, Ridge
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn import metrics
 from sklearn.svm import SVR
@@ -13,7 +15,7 @@ from ccc import concordance_correlation_coefficient
 # 固有の変数設定
 DATA_FILE_PATH = "features/extracted_features.csv"
 TARGET_FILE_PATH = "features/updrs_list.csv"
-EXCLUDE_IDS = []
+EXCLUDE_IDS = ["tone007-1"]
 
 # 定数設定
 UPDRS_XMIN = 0
@@ -68,7 +70,7 @@ def perform_pca(X_train, X_test, explained_variance_threshold=0.9999):
     return X_train_pca, X_test_pca, use_component_number
 
 # SVRの最適化
-def optimize_svr(X_train, Y_train):
+def train_svr(X_train, Y_train):
     svr_gammas = 2 ** np.arange(-20, 11, dtype=float)
     svr_epsilons = 2 ** np.arange(-10, 1, dtype=float)
     svr_cs = 2 ** np.arange(-5, 11, dtype=float)
@@ -89,8 +91,69 @@ def optimize_svr(X_train, Y_train):
     model_c = GridSearchCV(SVR(kernel='rbf', epsilon=optimal_epsilon, gamma=optimal_gamma), {'C': svr_cs}, cv=5)
     model_c.fit(X_train, Y_train)
     optimal_c = model_c.best_params_['C']
+    regr = SVR(kernel='rbf', C=optimal_c, epsilon=optimal_epsilon, gamma=optimal_gamma, max_iter=1000)
+    return regr.fit(X_train, Y_train)
 
-    return SVR(kernel='rbf', C=optimal_c, epsilon=optimal_epsilon, gamma=optimal_gamma, max_iter=1000)
+
+def train_liner_reg(X_train, Y_train):
+    regr = LinearRegression()
+    regr.fit(X_train, Y_train)
+    return regr
+
+def train_lasso_reg(X_train, Y_train):
+    search_params = {'alpha':[1e-3, 3e-3, 5e-3, 7e-3, 0.01]}
+    regr = Lasso(max_iter = 10, tol = 5e-2)
+    gs = GridSearchCV(estimator = regr, param_grid = search_params, cv = 5, n_jobs = -1)
+    gs.fit(X_train, Y_train)
+    
+    return gs.best_estimator_
+
+def train_lidge_reg(X_train, Y_train):
+    #クロスバリデーションを用いたグリッドサーチ
+    search_params = {'alpha':[0.001, 0.01, 0.1, 1, 10]}
+    regr = Ridge(max_iter = 10, tol = 5e-2)
+    gs = GridSearchCV(estimator = regr, param_grid = search_params, cv = 5, n_jobs = -1)
+    gs.fit(X_train, Y_train)
+    return  gs.best_estimator_
+
+def train_elanet(X_train, Y_train):
+    #クロスバリデーションを用いたグリッドサーチ
+    search_params = {'alpha':[1e-3, 3e-3, 5e-3, 7e-3, 0.01]}
+    regr = ElasticNet(max_iter = 15, tol = 5e-2)
+    gs = GridSearchCV(estimator = regr, param_grid = search_params, cv = 5, n_jobs = -1)
+    gs.fit(X_train, Y_train)
+    return gs.best_estimator_
+
+def train_landom_forest(X_train, Y_train):
+    #クロスバリデーションを用いたグリッドサーチ
+    search_params = {'n_estimators'      : [100],
+                     'max_features'      : [3, 5, 10, 15, 20],
+                     'random_state'      : [2525],
+                     'n_jobs'            : [1],
+                     'min_samples_split' : [3, 5, 10, 15, 20, 25, 30, 40, 50, 100],
+                     'max_depth'         : [3, 5, 10, 15, 20, 25, 30, 40, 50, 100]}
+    regr = RandomForestRegressor()
+    gs = GridSearchCV(estimator = regr, param_grid = search_params, cv = 5, n_jobs = -1)
+    gs.fit(X_train, Y_train)
+    return  gs.best_estimator_
+
+def train_gbdt(X_train, Y_train):
+    #クロスバリデーションを用いたグリッドサーチ
+    search_params = {
+        'n_estimators'      : [100, 150, 200],
+        'max_features'      : [3, 5, 10, 15, 20],
+        'random_state'      : [2525],
+        'min_samples_split' : [3, 5, 10, 15, 20, 25, 30, 40, 50, 100],
+        'max_depth'         : [3, 5, 10, 15, 20, 25, 30, 40, 50, 100]}
+    regr = GradientBoostingRegressor()
+    gs = GridSearchCV(estimator = regr, param_grid = search_params, cv = 5, n_jobs = -1)
+    gs.fit(X_train, Y_train)
+    return gs.best_estimator_
+
+
+    
+
+
 
 # モデル評価
 def evaluate_model(model, X_test, Y_test):
@@ -109,7 +172,7 @@ def plot_results(Y_test, Y_pred, iteration):
     plt.xlabel("Measured value")
     plt.ylabel("Estimated value")
     plt.title(f"Iteration {iteration}")
-    plt.show()
+    plt.close()
 
 # メイン処理
 def main():
@@ -121,17 +184,16 @@ def main():
     for k in range(50, 60):
         X_train, X_test, Y_train, Y_test = split_and_scale_data(parkinson_df, parkinson_target_data, k)
         X_train_pca, X_test_pca, _ = perform_pca(X_train, X_test)
-        svr_model = optimize_svr(X_train_pca, Y_train)
-        svr_model.fit(X_train_pca, Y_train)
+        model = train_svr(X_train_pca, Y_train)
         
-        r2, mae, ccc, corr = evaluate_model(svr_model, X_test_pca, Y_test)
-        r2_train, mae_train, ccc_train, corr_train = evaluate_model(svr_model, X_train_pca, Y_train)
+        r2, mae, ccc, corr = evaluate_model(model, X_test_pca, Y_test)
+        r2_train, mae_train, ccc_train, corr_train = evaluate_model(model, X_train_pca, Y_train)
         r2_list.append(r2)
         mae_list.append(mae)
         ccc_list.append(ccc)
         corr_list.append(corr)
 
-        plot_results(Y_test, svr_model.predict(X_test_pca), k)
+        plot_results(Y_test, model.predict(X_test_pca), k)
 
     print("train:")
     print("r2:" + format(np.mean(r2_train), '.3f') + "±" + format(np.std(r2_train), '.3f') 

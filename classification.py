@@ -18,7 +18,7 @@ import lightgbm as lgb
 
 # 固有の変数設定
 DATA_FILE_PATH = "features/extracted_features.csv"
-EXCLUDE_IDS = []
+EXCLUDE_IDS = ["tone007-1"]
 
 # 使用する変数リストと統計量
 variable_list = ['x_acc', 'y_acc', 'z_acc']

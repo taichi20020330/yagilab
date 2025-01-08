@@ -6,7 +6,7 @@ from collections import namedtuple
 import os
 import re
 
-base_input_folder = 'data/clipout'
+base_input_folder = 'data/clipout/'
 base_output_folder = 'features'
 subfolders = ['normal', 'parkin']
 output_file_name =  'extracted_features.csv'
@@ -26,8 +26,20 @@ def set_group_nums(csv_files):
 
 def set_IDs(csv_files):
     for file in csv_files:
-        file_name = file.split('/')[-1].replace('.csv', '')
-        IDs.append(file_name)
+        # ファイル名を取得
+        file_name = file.split('/')[-1]  # ファイルパスからファイル名を抽出
+        file_name = file_name.split('.')[0]  # 拡張子を削除
+
+        # 正規表現で番号部分を抽出
+        match = re.match(r'(\D*?)(\d+)_neck(\d+)_clipout', file_name)
+        if match:
+            prefix = match.group(1)  # 接頭辞部分（例: "001", "tone042"）
+            main_number = match.group(2)  # 主番号部分
+            neck_number = match.group(3)  # "neck"番号部分
+
+            # フォーマットに従って結合
+            formatted_id = f"{prefix}{main_number}-{neck_number}"
+            IDs.append(formatted_id)
         
 
 def extract_features(csv_files):
@@ -180,7 +192,8 @@ final_features = pd.concat(all_results)
 final_features.insert(0, 'group', group_nums)
 final_features.insert(0, 'ID', IDs)
 merged_features = merge_goback(final_features)
-save_features_to_csv(merged_features, output_features_file)
+sorted_df = merged_features.sort_values(by='ID', ascending=True)
+save_features_to_csv(sorted_df, output_features_file)
 
 # files = ['data/clipout/normal/030_neck2_clipout_back.csv', 'data/clipout/normal/030_neck2_clipout_go.csv']
 # for file in files:

@@ -6,9 +6,7 @@ import os
 import glob
 import ruptures as rpt
 from scipy.signal import find_peaks
-from scipy.interpolate import interp1d
-from scipy import interpolate
-from pathlib import Path
+from scipy.signal import butter, filtfilt
 
 
 base_input_folder = 'data/two_neck_dataset/'
@@ -66,33 +64,6 @@ def analyze_frequency_spectrum(df,sampling_rate=100):
     return max(positive_freqs[peaks])
     
 
-def plot_signal_with_maxima_and_curve(signal_v, peaks_df):
-    """
-    元の信号、極大値、および極大値を結んだ曲線をプロットする。
-
-    Args:
-        signal_v (pd.Series): 信号データ。
-        peaks_df (pd.DataFrame): 極大値の時間（index）と値を含むデータフレーム。
-    """
-    # 時間軸
-    time = signal_v.index
-
-    # 極大値を補間
-    spline_function = interp1d(peaks_df['time'], peaks_df['value'], kind='cubic', fill_value="extrapolate")
-    smooth_curve = spline_function(time)
-
-    # プロット
-    # plt.figure(figsize=(12, 6))
-    # plt.plot(time, signal_v, label='Original Signal', color='blue', alpha=0.5)  # 元データ
-    # plt.scatter(peaks_df['time'], peaks_df['value'], color='red', label='Local Maxima', zorder=5)  # 極大値
-    # plt.plot(time, smooth_curve, label='Fitted Curve', color='orange')  # 補間曲線
-    # plt.title('Signal with Local Maxima and Fitted Curve')
-    # plt.xlabel('Time')
-    # plt.ylabel('Amplitude')
-    # plt.legend()
-    # plt.grid()
-    # plt.show()
-
 def find_change_point(signal_v, n_bkps, isPoint):
     # コスト関数の設定
     model = "normal"
@@ -103,105 +74,7 @@ def find_change_point(signal_v, n_bkps, isPoint):
         return int((my_bkps[0] + my_bkps[1]) / 2)
     else:
         return my_bkps
-
-def kyokudai_plot(df, output_folder_path, file_name):
-    # データを原点に揃える
-    df = df - df.iloc[0]
-
-    # グラフのプロット
-    plt.figure(figsize=(10, 6))
-    plt.plot(df.index, df['z_acc'], label='z_acc', color='green')
-
-    # 極大値を検出
-    max_points_x = []
-    max_points_y = []
-    for i in range(1, len(df) - 1):
-        if df['z_acc'].iloc[i] > df['z_acc'].iloc[i - 1] and df['z_acc'].iloc[i] > df['z_acc'].iloc[i + 1]:
-            max_points_x.append(df.index[i])
-            max_points_y.append(df['z_acc'].iloc[i])
-
-    # 極大値をプロット
-    plt.scatter(max_points_x, max_points_y, color='C1', s=50, zorder=5)
-
-    # スプライン補完を使って滑らかな曲線を描く
-    if max_points_x:
-        # 補完のためのスプライン関数を作成
-        spline = interpolate.CubicSpline(max_points_x, max_points_y)
-
-        # 補完曲線を描画するための新しいx値を生成
-        new_x = np.linspace(min(max_points_x), max(max_points_x), 500)
-        new_y = spline(new_x)
-
-        # 補完曲線を描画
-        plt.plot(new_x, new_y, color='orange', label='Spline Interpolation', linewidth=2)
-
-    # グラフの仕上げ
-    plt.xlabel('Time')
-    plt.ylabel('z_acc')
-    plt.legend()
-    plt.grid(True)
-    plt.title('Curve with Spline Interpolation')
-    plt.show()
-
   
-
-def plot_curve(df, output_folder_path, file_name,  peakHeltz):
-    df = df - df.iloc[0]
-
-    period = 1 / peakHeltz * 100   # 2Hzの周期（0.5秒間隔）
-    times = np.arange(0, df.index[-1], period)  # df.indexの最終値までの0.5秒刻み
-
-    # グラフのプロット
-    plt.figure(figsize=(10, 6))
-    plt.plot(df.index, df['z_acc'], label='z_acc', color='green')
-
-    max_points_x = []
-    max_points_y = []
-
-
-    # 最大値を取る点をプロット
-    for start_time in times:
-        end_time = start_time + period
-        # この期間のデータを取得
-        mask = (df.index >= start_time) & (df.index < end_time)
-        period_data = df[mask]
-        
-        # z_accの最大値とそのインデックスを取得
-        if not period_data.empty:
-            max_index = period_data['z_acc'].idxmax()  # 最大値のインデックス
-            max_value = period_data['z_acc'].max()  # 最大値
-            
-            # 最大値をプロット
-            plt.scatter(max_index, max_value, color='C1', s=50, zorder=5)
-            
-            # 最大値の座標をリストに追加
-            max_points_x.append(max_index)
-            max_points_y.append(max_value)
-    
-    # スプライン補完を使って滑らかな曲線を描く
-    if max_points_x:
-        # 補完のためのスプライン関数を作成
-        spline = interpolate.CubicSpline(max_points_x, max_points_y)
-
-        # 補完曲線を描画するための新しいx値を生成
-        new_x = np.linspace(min(max_points_x), max(max_points_x), 500)
-        new_y = spline(new_x)
-
-        # 補完曲線を描画
-        plt.plot(new_x, new_y, color='orange', label='Spline Interpolation', linewidth=2)
-
-    # # グラフのタイトルとラベル
-    # plt.plot(df.index, df['z_acc'], label='z_acc', color='green')
-    # plt.title('Acceleration Data with 2Hz Vertical Lines')
-    # plt.xlabel('Time (index)')
-    # plt.ylabel('Acceleration')
-    # plt.legend()
-    # plt.grid(True)
-
-    # # グラフを表示
-    # plt.show()
-
-    # save_graph_to_png(plt, output_folder_path, file_name, )
 
 def make_graph(df, change_point, start_end, output_folder_path, file_name):
     df = df - df.iloc[0]
@@ -282,17 +155,6 @@ def merge_csv(folder_path, file_name):
     merged_df = pd.concat(csv_files).reset_index(drop=True)
     return merged_df
 
-    # plt.figure(figsize=(12, 6))
-    # plt.title(file_name)
-    # plt.plot(merged_df.index, merged_df['z_acc'], label='z_acc', color='green')
-    # plt.plot(merged_df.index, merged_df['y_acc'], label='y_acc', color='red')
-    # plt.plot(merged_df.index, merged_df['x_acc'], label='x_acc', color='blue')
-    # plt.axvline(center, color="orange", lw=2, linestyle='--', label="center")
-    # plt.legend()
-    # plt.xticks(np.arange(0, 4000, step=200))
-    # plt.grid()
-    # plt.savefig('graph/merged_csv/' + file_name + ".png")
-    # plt.close()
 
 def fixxx_graph(symptom):
     # 空白ぎょうなら読み飛ばす
@@ -321,62 +183,6 @@ def fixxx_graph(symptom):
             start = 0 if idx == 0 else center + 1
             stop = center if idx == 0 else end
             fix_csv_slice(merged_df, start, stop, symptom, file_name + '_' + move)
-    
-
-
-
-
-# 修正情報を適用するメイン関数
-# def fix_graph(symptom):
-#     # 修正情報ファイルを読み込み
-#     info_df = pd.read_csv(fix_info_file_path, names=['id', 'group', 'center', 'end']).dropna(how='all')
-
-#     if symptom == 'parkin':
-#         info_df = info_df[info_df['group'] == 1]
-#         file_format = "tone{0}_neck{1}_clipout_{2}.csv"    
-#     else:
-#         info_df = info_df[info_df['group'] == 0]
-#         file_format = "{0}_neck{1}_clipout_{2}.csv"  
-    
-#     for _, gyo in info_df.iterrows():
-#         file_id = gyo['id']
-#         splited_id, splited_num = file_id.split('-')
-#         folder_path = os.path.join(fix_input_folder, symptom)    
-
-#         csv_files = []
-#         for move in ikikaeri:
-#             file_name = file_format.format(splited_id, splited_num, move)
-#             file_path = os.path.join(folder_path, file_name)
-#             if os.path.exists(file_path):
-#                 csv_files.append(pd.read_csv(file_path, names=statistic, skiprows=1))
-#             else:
-#                 raise FileNotFoundError(f"File {file_path} not found.")
-            
-#         marged_csv = pd.concat(csv_files).reset_index(drop=True)
-#         show_graph(marged_csv, file_name)
-        # center = len(csv_files[0])
-        # end = len(marged_csv)
-        # if pd.notnull(gyo['center']):  # center が存在する場合
-        #     center = int(gyo['center'])
-
-        # if pd.notnull(gyo['end']):  # end が存在する場合
-        #     end = int(gyo['end'])
-        
-        # # スライスして保存
-        # for idx, move in enumerate(ikikaeri):
-        #     start = 0 if idx == 0 else center + 1
-        #     stop = center if idx == 0 else end
-        #     fix_csv_slice(marged_csv, start, stop, symptom, file_name)
-    
-        # グラフをプロット
-        # plt.figure()
-        # plt.title(file_id)
-        # plt.plot(marged_csv.index[:end], marged_csv['z_acc'][:end], label='z_acc', color='green')
-        # plt.plot(marged_csv.index[:end], marged_csv['y_acc'][:end], label='y_acc', color='red')
-        # plt.plot(marged_csv.index[:end], marged_csv['x_acc'][:end], label='x_acc', color='blue')
-        # plt.axvline(center, color="orange", lw=2, linestyle='--', label="center")
-        # plt.legend()
-        # plt.show()
 
 
 def clipout_data(df, symptom):
@@ -399,6 +205,44 @@ def clipout_data(df, symptom):
 
         df[start:end].to_csv(f'data/bw_clip/{symptom}/{file_name}', index=False, header=False,)
 
+def my_lowpass(w, dt=0.01, fc2=0.3, order=4):
+    fs = 1 / dt  # サンプリング周波数
+    b, a = butter(order, fc2 / (fs / 2), btype='low')
+    return filtfilt(b, a, w)
+
+# ベクトル生成関数
+def my_gen_cec(wx, wy, wz):
+    wx = wx - my_lowpass(wx)
+    wy = wy - my_lowpass(wy)
+    wz = wz - my_lowpass(wz)
+    d_wx = wx - np.mean(wx)
+    d_wy = wy - np.mean(wy)
+    d_wz = wz - np.mean(wz)
+    return np.column_stack((d_wx, d_wy, d_wz))
+
+# clipout_butterworth関数
+def clipout_butterworth(df, file_name, output_folder_path):
+    vi = my_gen_cec(df['x_acc'], df['y_acc'], df['z_acc'])
+
+    variance_change = np.var(vi, axis=1)
+    threshold = np.mean(variance_change) + np.std(variance_change)
+    TF = variance_change > threshold
+    indices = np.where(TF)[0]
+
+    ws, we = (indices[0], indices[1]) if len(indices) >= 2 else (None, None)
+
+    plt.figure()
+    plt.plot(vi)
+    len_vi = len(vi)
+    wline = np.min(vi) * np.ones(len_vi)
+    if ws is not None and we is not None:
+        wline[ws:we] = np.max(vi)
+    plt.plot(wline)
+
+    plot_path = os.path.join(output_folder_path, f'plot_{file_name}.png')
+    plt.savefig(plot_path)
+    plt.close()
+
 
 
 for subfolder in subfolders:
@@ -406,29 +250,25 @@ for subfolder in subfolders:
     output_folder_path = os.path.join(base_output_folder, subfolder)
     csv_output_folder_path = os.path.join(csv_base_output_folder, subfolder)
     csv_files = glob.glob(os.path.join(input_folder_path, input_file_name))
-    for file in csv_files:
-        file_name = os.path.splitext(os.path.basename(file))[0]
-        df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
-        show_graph(df, file_name)
+    # for file in csv_files:
+    #     file_name = os.path.splitext(os.path.basename(file))[0]
+    #     df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
+    #     clipout_butterworth(df, file_name, output_folder_path)
+    #     # show_graph(df, file_name)
 
 
 
 
     # fixxx_graph(subfolder)
     
-    # for file in csv_files:
-    #     file_name = os.path.splitext(os.path.basename(file))[0]
-    # #     filtered_df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'], skiprows=skip_point, skipfooter=1000)
-    #     df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
-    #     gyo = len(df)
-    #     if(gyo < 700):
-    #         print(f'{file_name} ... {gyo}行')
-
-
-    #     change_point = find_change_point(filtered_df, 2, True)
-    #     start_end = find_change_point(df, 2, False)
-    #     # make_graph(df, change_point, start_end, output_folder_path, file_name)
-    #     devide_graph(df, change_point, start_end, csv_output_folder_path, output_folder_path, file_name)
+    for file in csv_files:
+        file_name = os.path.splitext(os.path.basename(file))[0]
+        filtered_df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'], skiprows=skip_point, skipfooter=1000)
+        df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
+        change_point = find_change_point(filtered_df, 2, True)
+        start_end = find_change_point(df, 2, False)
+        # make_graph(df, change_point, start_end, output_folder_path, file_name)
+        devide_graph(df, change_point, start_end, csv_output_folder_path, output_folder_path, file_name)
 
 
     # for file in csv_files:
@@ -441,6 +281,5 @@ for subfolder in subfolders:
 
 
 
-# ファイル取得→goとかbackのける。
 
 
