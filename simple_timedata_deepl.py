@@ -130,7 +130,7 @@ def main():
     batch_size = num_of_train                          # batch size
 
     print(f'layers={LAYERS}, train_examples={num_of_train}, test_examples={num_of_test}')
-    print(f'batch = {batch_size}, timesteps = {TIMESETPS}, features = {num_of_features}, epochs = {EPOCH}')
+    print(f'batch = {BATCH}, timesteps = {TIMESETPS}, features = {num_of_features}, epochs = {EPOCH}')
     print(f'lr = {LR}, lambda = {LAMBD}, dropout = {DP}, recurr_dropout = {RDP}')
 
     lr_decay = ReduceLROnPlateau(monitor='loss', 
