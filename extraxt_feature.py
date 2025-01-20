@@ -8,65 +8,47 @@ import re
 
 base_input_folder = 'data/bw_clip/'
 base_output_folder = 'features'
-subfolders = ['parkin', 'normal']
+subfolders = ['normal', 'parkin']
 output_file_name =  'extracted_features.csv'
 input_file_name = '*.csv'
 all_results = []
 group_nums = []
 IDs = []
-statistic = ['x_acc', 'y_acc', 'z_acc']
-
-# def check_group(csv_files):
-#     group_nums = []
-#     for file in csv_files:
-#         # 'normal' を含む場合は 1、それ以外は 0 を追加
-#         if 'normal' in file:
-#             group_nums.append(1)
-#         else:
-#             group_nums.append(0)
-#     return group_nums
-
-# def check_ID(csv_files):
-#     transformed_names = []
-#     for file in csv_files:
-#         # 2種類のファイルパターンに基づいて名前を変換
-#         if re.match(r"^\d+_neck\d+_clipout", file):
-#             transformed_name = re.sub(r"(_neck)(\d)(_clipout)", r"-\2", file)
-#         elif re.match(r"^[a-zA-Z]+\d+_neck\d+_clipout", file):
-#             transformed_name = re.sub(r"(_neck)(\d)(_clipout)", r"-\2", file)
-#         else:
-#             # パターンに一致しない場合はファイル名をそのまま追加
-#             transformed_name = file
-#         transformed_names.append(transformed_name)
-#     return transformed_names
+input = ['x_acc', 'y_acc', 'z_acc']
+statistic = ['x_acc', 'y_acc', 'z_acc', 'mag']
 
 
-def check_group(csv_files):
+def set_group_nums(csv_files):
     for file in csv_files:
         if 'normal' in file:
-            group_nums.append(1)
-        else:
             group_nums.append(0)
-
-def check_ID(csv_files):
-    for file in csv_files:
-        file_name = file.split('/')[-1].replace('.csv', '')
-        if re.match(r"^\d{3}_neck\d", file_name):
-            base, neck = file_name.split('_neck')
-            IDs.append(f"{base}-{neck[0]}")
-        elif re.match(r"^tone\d{3}_neck\d", file_name):
-            base, neck = file_name.split('_neck')
-            IDs.append(f"{base}-{neck[0]}")
         else:
-            IDs.append(file_name)
-    return IDs
+            group_nums.append(1)
+
+def set_IDs(csv_files):
+    for file in csv_files:
+        # ファイル名を取得
+        file_name = file.split('/')[-1]  # ファイルパスからファイル名を抽出
+        file_name = file_name.split('.')[0]  # 拡張子を削除
+
+        # 正規表現で番号部分を抽出
+        match = re.match(r'(\D*?)(\d+)_neck(\d+)_clipout', file_name)
+        if match:
+            prefix = match.group(1)  # 接頭辞部分（例: "001", "tone042"）
+            main_number = match.group(2)  # 主番号部分
+            neck_number = match.group(3)  # "neck"番号部分
+
+            # フォーマットに従って結合
+            formatted_id = f"{prefix}{main_number}-{neck_number}"
+            IDs.append(formatted_id)
         
 
 def extract_features(csv_files):
     features_by_symptom = []
 
     for file in csv_files:
-        df = pd.read_csv(file, header=None, names=statistic)
+        df = pd.read_csv(file, header=None, names=input, skiprows=1)
+        df['mag'] = np.sqrt(df['x_acc']**2 + df['y_acc']**2 + df['z_acc']**2)
         two_features = extract_dict_features_from_csv(df)
         features_by_symptom.append(two_features)
 
@@ -97,15 +79,18 @@ def extract_frequency_features(df):
     x_data = df['x_acc'].to_numpy()
     y_data = df['y_acc'].to_numpy()
     z_data = df['z_acc'].to_numpy()
+    mag_data = df['mag'].to_numpy()
 
     # 特徴量を抽出
-    features_x = calculate_frequency_features(x_data)
+        
     features_y = calculate_frequency_features(y_data)
+    features_x = calculate_frequency_features(x_data)
     features_z = calculate_frequency_features(z_data)
+    features_mag = calculate_frequency_features(mag_data)
 
      # 各軸ごとに特徴量を辞書形式で作成
     combined_features = {}
-    for axis, features in zip(statistic, [features_x, features_y, features_z]):
+    for axis, features in zip(statistic, [features_x, features_y, features_z, features_mag]):
         for key, value in features.items():
             combined_features[f"{axis}__{key}"] = value
 
@@ -115,6 +100,11 @@ def calculate_frequency_features(time_series_data, fs=100):
     n = len(time_series_data)
     y1 = time_series_data[:n//2]
     y2 = time_series_data[n//2:]
+
+    min_length = min(len(y1), len(y2))
+    y1 = y1[:min_length]
+    y2 = y2[:min_length]
+
 
     # デトレンド処理
     y1_detrended = signal.detrend(y1)
@@ -162,9 +152,31 @@ def calculate_frequency_features(time_series_data, fs=100):
     }
 
 def save_features_to_csv(features, output_features_file):
-    features.insert(0, 'group', group_nums)
-    features.insert(0, 'ID', IDs)
     features.to_csv(output_features_file, index = False)
+
+def merge_goback(df):
+    visited_file_names = []
+    df_list = []
+
+    for _, gyo in df.iterrows():
+        file_name = gyo['ID'].replace('_go', '').replace('_back', '')
+        if file_name in visited_file_names:
+            continue
+
+        visited_file_names.append(file_name)
+        pair_file_name = gyo['ID'].replace('go' , 'X').replace('back' , 'go').replace('X' , 'back')
+        pair_gyo = df[df['ID'] == pair_file_name]
+
+        if not pair_gyo.empty:
+            mean_values = gyo.copy()  # 現在の行をコピー
+            mean_values['ID'] = file_name
+            for col in df.columns:
+                if col not in ['ID', 'group']:  # 平均を取らない列を除外
+                    mean_values[col] = (gyo[col] + pair_gyo.iloc[0][col]) / 2
+              
+            df_list.append(mean_values)
+
+    return pd.DataFrame(df_list)
 
 
 
@@ -175,10 +187,19 @@ for subfolder in subfolders:
     output_features_file = os.path.join(base_output_folder, output_file_name)
     csv_files = glob.glob(os.path.join(input_folder_path, input_file_name))
 
-    check_group(csv_files)
-    check_ID(csv_files)
+    set_group_nums(csv_files)
+    set_IDs(csv_files)
     features_by_symptom = extract_features(csv_files)
     all_results.append(pd.DataFrame(features_by_symptom))
 
 final_features = pd.concat(all_results)
-save_features_to_csv(final_features, output_features_file)
+final_features.insert(0, 'group', group_nums)
+final_features.insert(0, 'ID', IDs)
+merged_features = merge_goback(final_features)
+sorted_df = merged_features.sort_values(by='ID', ascending=True)
+save_features_to_csv(sorted_df, output_features_file)
+
+# files = ['data/clipout/normal/030_neck2_clipout_back.csv', 'data/clipout/normal/030_neck2_clipout_go.csv']
+# for file in files:
+#     df = pd.read_csv(file, header=None, names=statistic, skiprows=1)
+#     extract_frequency_features(df)

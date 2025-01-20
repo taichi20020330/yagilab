@@ -63,6 +63,7 @@ def train_svm(X_train, Y_train):
     
     return gs.best_estimator_
 
+
 # モデルの評価
 def evaluate_model(Y_test, Y_pred, acc_list, pre_list, rec_list, f1_list):
     acc = metrics.accuracy_score(Y_test, Y_pred)
