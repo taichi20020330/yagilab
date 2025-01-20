@@ -22,7 +22,7 @@ UPDRS_XMIN = 0
 UPDRS_XMAX = 108
 
 # 使用する変数リストと統計量
-variable_list = ['x_acc', 'y_acc', 'z_acc']
+variable_list = ['x_acc', 'y_acc', 'z_acc', 'mag']
 # statistics_list = ['sum_values', 'median', 'mean', 'length', 'standard_deviation', 'variance', 'root_mean_square', 'maximum', 'absolute_maximum', 'minimum']
 statistics_list = ['max', 'min', 'mean', 'median', 'std', 'var', 'sum']
 spectal_feature_list = ['freezing_index', 'central_frequency','dominant_frequency','amplitude','relative_amplitude']
@@ -124,7 +124,7 @@ def train_elanet(X_train, Y_train):
     gs.fit(X_train, Y_train)
     return gs.best_estimator_
 
-def train_landom_forest(X_train, Y_train):
+def train_random_forest(X_train, Y_train):
     #クロスバリデーションを用いたグリッドサーチ
     search_params = {'n_estimators'      : [100],
                      'max_features'      : [3, 5, 10, 15, 20],
@@ -184,7 +184,7 @@ def main():
     for k in range(50, 60):
         X_train, X_test, Y_train, Y_test = split_and_scale_data(parkinson_df, parkinson_target_data, k)
         X_train_pca, X_test_pca, _ = perform_pca(X_train, X_test)
-        model = train_svr(X_train_pca, Y_train)
+        model = train_random_forest(X_train_pca, Y_train)
         
         r2, mae, ccc, corr = evaluate_model(model, X_test_pca, Y_test)
         r2_train, mae_train, ccc_train, corr_train = evaluate_model(model, X_train_pca, Y_train)

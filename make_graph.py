@@ -9,11 +9,11 @@ from scipy.signal import find_peaks
 from scipy.signal import butter, filtfilt
 
 
-base_input_folder = 'data/two_neck_dataset/'
-fix_input_folder = 'data/clipout/'
-base_output_folder = 'graph/change_point/'
+base_input_folder = 'data/bw_clip/'
+fix_input_folder = 'data/bw_clip/'
+base_output_folder = 'graph/presentation/'
 csv_base_output_folder = 'data/clipout'
-subfolders = ['normal', 'parkin']
+subfolders = ['normal']
 ikikaeri = ['go', 'back']
 input_file_name = '*.csv'
 statistic = ['x_acc', 'y_acc', 'z_acc']
@@ -105,16 +105,20 @@ def show_graph(df, title):
 
 
 def save_graph_to_png(df,  output_folder_path, file_name):
-    plt.plot(df.index, df['x_acc'], label='x_acc', color="red")
-    plt.plot(df.index, df['y_acc'], label='y_acc', color="green")
-    plt.plot(df.index, df['z_acc'], label='z_acc', color="blue")
-    plt.xlabel('Time (index)')
-    plt.ylabel('Acceleration')
-    plt.legend()
-    plt.grid(True)
-    output_folder_path = os.path.join(output_folder_path, file_name + '.png')
-    plt.savefig(output_folder_path)
+    colors = {'x_acc': 'green', 'y_acc': 'red', 'z_acc': 'blue'}
+    for label in ['x_acc', 'y_acc', 'z_acc']:
+        plt.figure()
+        plt.plot(df.index, df[label], label=label, color=colors[label])
+        plt.xlabel('Time[s]')
+        plt.ylabel('Acceleration[m/s^2]')
+        plt.ylim(-1.5, 1.5)  # Set y-axis range from -1.0 to 1.0
+        plt.xlim(0, 2688) 
+        plt.legend()
+        out = os.path.join(output_folder_path, file_name + '_' + label + '.png')
+        plt.savefig(out)
+        plt.close
 
+    
 
 def save_csv_slice(df, start, end, csv_folder_path, output_folder_path, file_name, file_suffix):
     ikikaeri_name = file_name + '_' + file_suffix
@@ -265,10 +269,11 @@ for subfolder in subfolders:
         file_name = os.path.splitext(os.path.basename(file))[0]
         filtered_df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'], skiprows=skip_point, skipfooter=1000)
         df = pd.read_csv(file, header=None, names=['x_acc', 'y_acc', 'z_acc'])
-        change_point = find_change_point(filtered_df, 2, True)
-        start_end = find_change_point(df, 2, False)
+        save_graph_to_png(df, output_folder_path, file_name)
+        # change_point = find_change_point(filtered_df, 2, True)
+        # start_end = find_change_point(df, 2, False)
         # make_graph(df, change_point, start_end, output_folder_path, file_name)
-        devide_graph(df, change_point, start_end, csv_output_folder_path, output_folder_path, file_name)
+        # devide_graph(df, change_point, start_end, csv_output_folder_path, output_folder_path, file_name)
 
 
     # for file in csv_files:

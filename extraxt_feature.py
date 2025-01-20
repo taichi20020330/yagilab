@@ -6,7 +6,7 @@ from collections import namedtuple
 import os
 import re
 
-base_input_folder = 'data/clipout/'
+base_input_folder = 'data/bw_clip/'
 base_output_folder = 'features'
 subfolders = ['normal', 'parkin']
 output_file_name =  'extracted_features.csv'
@@ -14,7 +14,8 @@ input_file_name = '*.csv'
 all_results = []
 group_nums = []
 IDs = []
-statistic = ['x_acc', 'y_acc', 'z_acc']
+input = ['x_acc', 'y_acc', 'z_acc']
+statistic = ['x_acc', 'y_acc', 'z_acc', 'mag']
 
 
 def set_group_nums(csv_files):
@@ -46,7 +47,8 @@ def extract_features(csv_files):
     features_by_symptom = []
 
     for file in csv_files:
-        df = pd.read_csv(file, header=None, names=statistic, skiprows=1)
+        df = pd.read_csv(file, header=None, names=input, skiprows=1)
+        df['mag'] = np.sqrt(df['x_acc']**2 + df['y_acc']**2 + df['z_acc']**2)
         two_features = extract_dict_features_from_csv(df)
         features_by_symptom.append(two_features)
 
@@ -77,16 +79,18 @@ def extract_frequency_features(df):
     x_data = df['x_acc'].to_numpy()
     y_data = df['y_acc'].to_numpy()
     z_data = df['z_acc'].to_numpy()
+    mag_data = df['mag'].to_numpy()
 
     # 特徴量を抽出
         
     features_y = calculate_frequency_features(y_data)
     features_x = calculate_frequency_features(x_data)
     features_z = calculate_frequency_features(z_data)
+    features_mag = calculate_frequency_features(mag_data)
 
      # 各軸ごとに特徴量を辞書形式で作成
     combined_features = {}
-    for axis, features in zip(statistic, [features_x, features_y, features_z]):
+    for axis, features in zip(statistic, [features_x, features_y, features_z, features_mag]):
         for key, value in features.items():
             combined_features[f"{axis}__{key}"] = value
 

@@ -21,7 +21,7 @@ DATA_FILE_PATH = "features/extracted_features.csv"
 EXCLUDE_IDS = ["tone007-1"]
 
 # 使用する変数リストと統計量
-variable_list = ['x_acc', 'y_acc', 'z_acc']
+variable_list = ['x_acc', 'y_acc', 'z_acc', 'mag']
 # statistics_list = ['sum_values', 'median', 'mean', 'length', 'standard_deviation', 'variance', 'root_mean_square', 'maximum', 'absolute_maximum', 'minimum']
 statistics_list = ['max', 'min', 'mean', 'median', 'std', 'var', 'sum']
 spectal_feature_list = ['freezing_index', 'central_frequency','dominant_frequency','amplitude','relative_amplitude']
@@ -98,24 +98,6 @@ def train_light_gbm(X_train, Y_train):
     gs = GridSearchCV(estimator = clf, param_grid = search_params, cv = skf, n_jobs = -1)
     gs.fit(X_train, Y_train)
     return gs.best_estimator_
-
-# def train_redge_regression(X_train, Y_train):
-#     #クロスバリデーションを用いたグリッドサーチ
-#     search_params = {'alpha':[0.001, 0.01, 0.1, 1, 10]}
-#     regr = Ridge(max_iter = 10, tol = 5e-2)
-#     gs = GridSearchCV(estimator = regr, param_grid = search_params, cv = 5, n_jobs = -1)
-#     gs.fit(X_train, Y_train)
-    
-#     return gs.best_estimator_
-
-# def train_lasso_regression(X_train, Y_train):
-#     #クロスバリデーションを用いたグリッドサーチ
-#     search_params = {'alpha':[0.001, 0.01, 0.1, 1, 10]}
-#     regr = Ridge(max_iter = 10, tol = 5e-2)
-#     gs = GridSearchCV(estimator = regr, param_grid = search_params, cv = 5, n_jobs = -1)
-#     gs.fit(X_train, Y_train)
-    
-#     return gs.best_estimator_
     
 def train_knn(X_train, Y_train):
     #クロスバリデーションを用いたグリッドサーチ
