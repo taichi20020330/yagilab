@@ -1,10 +1,11 @@
 
 import pandas as pd
+import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.callbacks import Callback
 from tensorflow.keras.layers import LSTM, Dense, BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam
 from sklearn.model_selection import GridSearchCV, LeaveOneOut, train_test_split
 from scikeras.wrappers import KerasClassifier
 from keras.regularizers import l2
@@ -18,8 +19,8 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 
-EPOCH = 50                           # number of epochs
-BATCH = 32
+EPOCH = 30                           # number of epochs
+BATCH = 50
 LR = 5e-2                            # learning rate of the gradient descent
 LAMBD = 0                       # lambda in L2 regularizaion
 DP = 0.0                             # dropout rate
@@ -55,6 +56,27 @@ class HistoryLogger(Callback):
             self.history[key].append(logs[key])
 
 
+
+def ccc(y_true, y_pred):
+    """Concordance Correlation Coefficient (CCC)"""
+    y_true_mean = tf.reduce_mean(y_true)
+    y_pred_mean = tf.reduce_mean(y_pred)
+    
+    cov = tf.reduce_mean((y_true - y_true_mean) * (y_pred - y_pred_mean))
+    y_true_var = tf.reduce_mean(tf.square(y_true - y_true_mean))
+    y_pred_var = tf.reduce_mean(tf.square(y_pred - y_pred_mean))
+    
+    ccc_val = (2 * cov) / (y_true_var + y_pred_var + tf.square(y_true_mean - y_pred_mean))
+    return ccc_val
+
+def r2_score(y_true, y_pred):
+    """R-squared (R²)"""
+    ss_res = tf.reduce_sum(tf.square(y_true - y_pred))
+    ss_tot = tf.reduce_sum(tf.square(y_true - tf.reduce_mean(y_true)))
+    r2 = 1 - ss_res / (ss_tot + tf.keras.backend.epsilon())
+    return r2
+
+
 def split_val_csv_files(csv_sub_folder_path, subfolder):
     if subfolder == "parkin":
         x = np.random.randint(23, 103, 22)
@@ -77,6 +99,7 @@ def split_val_csv_files(csv_sub_folder_path, subfolder):
 
 def make_sample_data(files, subfolder):
     sample_data_list = []
+    updrs_df = pd.read_csv("features/updrs_list_2023.csv")
     for file in files:
         try:
             df = pd.read_csv(file)
@@ -124,6 +147,7 @@ def set_train_dataset():
 
     return X_train_list, y_train_list, X_test_list, y_test_list, test_list
 
+
 def create_model(layer_units, activation, dropout_rate=0.0, recurrent_dropout_rate=0.0):
     model = Sequential()
     for i, units in enumerate(layer_units):
@@ -133,8 +157,10 @@ def create_model(layer_units, activation, dropout_rate=0.0, recurrent_dropout_ra
                        dropout=dropout_rate, recurrent_dropout=recurrent_dropout_rate,
                        return_sequences=return_sequences, input_shape=(TIMESETPS, NUM_FEATURES)))
         model.add(BatchNormalization())
-    model.add(Dense(1, activation='sigmoid'))
-    model.compile(optimizer=Adam(learning_rate=LR), loss='binary_crossentropy', metrics=['accuracy'])
+    model.add(Dense(1, activation='linear'))
+    model.compile(optimizer=Adam(learning_rate=LR), 
+              loss='mean_squared_error', 
+              metrics=['mae', ccc, r2_score])    
     return model
 
 
@@ -142,34 +168,15 @@ def evaluate_model(model, start, X_train, y_train, X_test, y_test, num_of_test):
     print('-'*65)
     print(f'Training was completed in {time() - start:.2f} secs')
     print('-'*65)
-    # Evaluate the model:
-    # train_loss, train_acc = model.evaluate(X_train, y_train,
-    #                                     batch_size=num_of_train, verbose=0)
-    # test_loss, test_acc = model.evaluate(X_test[:num_of_test], y_test[:num_of_test],
-    #                                     batch_size=num_of_test, verbose=0)
-    train_acc = model.score(X_train, y_train)
-    test_acc =model.score(X_test, y_test)
+    
+    train_results = model.evaluate(X_train, y_train, batch_size=len(X_train), verbose=0)
+    test_results = model.evaluate(X_test[:num_of_test], y_test[:num_of_test], batch_size=num_of_test, verbose=0)
     
     print('-'*65)
-    print(f'train accuracy = {round(train_acc * 100, 4)}%')
-    print(f'test accuracy = {round(test_acc * 100, 4)}%')
-    print(f'test error = {round((1 - test_acc) * num_of_test)} out of {num_of_test} examples')
+    print(f'Train Loss = {train_results[0]:.4f}, Train MAE = {train_results[1]:.4f}, Train CCC = {train_results[2]:.4f}, Train R² = {train_results[3]:.4f}')
+    print(f'Test Loss = {test_results[0]:.4f}, Test MAE = {test_results[1]:.4f}, Test CCC = {test_results[2]:.4f}, Test R² = {test_results[3]:.4f}')
+    print('-'*65)
 
-
-def print_history(history):
-    val_accuracy = history['val_accuracy']
-    print("Validation Accuracy over epochs:", val_accuracy)
-
-    fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(18,6))
-    axs[0].plot(history['loss'], color='b', label='Training loss')
-    axs[0].plot(history['val_loss'], color='r', label='Validation loss')
-    axs[0].set_title("Loss curves")
-    axs[0].legend(loc='best', shadow=True)
-    axs[1].plot(history['accuracy'], color='b', label='Training accuracy')
-    axs[1].plot(history['val_accuracy'], color='r', label='Validation accuracy')
-    axs[1].set_title("Accuracy curves")
-    axs[1].legend(loc='best', shadow=True)
-    plt.show()
 
 
 # CSVファイルに結果を書き込む関数
@@ -253,18 +260,38 @@ def main():
 
     start = time()
     param_grid = {
-        'batch_size': [32, 64, 256],
-        'epochs': [50],
-        'layer_units': [[8, 8], [64, 64], [8,8,8], [64, 64, 64]],
-        'activation' : ['tanh', 'relu']
+        'batch_size': [64, 256],
+        # 'layer_units': [[8, 8], [64, 64], [8,8,8], [64, 64, 64]],
+        # 'activation' : ['tanh', 'relu'],
         # 'dropout_rate': [0.0, 0.2],
         # 'recurrent_dropout_rate': [0.0, 0.2],
     }
-    model = KerasClassifier(build_fn=create_model, layer_units = [8,8], activation = 'tanh')
-    grid = GridSearchCV(estimator=model, param_grid=param_grid, cv=5)
+    model = KerasClassifier(model=create_model, layer_units=[8, 8], activation='tanh', verbose=1)
+    grid = GridSearchCV(estimator=model, param_grid=param_grid, cv=2)
     grid_result = grid.fit(
-        X_train, y_train, callbacks=[lr_decay, early_stop], shuffle=True, verbose=1, epochs=EPOCH, batch_size=BATCH)
+        X_train, y_train, callbacks=[lr_decay, early_stop], verbose=1)
+    # 最適なパラメータの取得
+    best_params = grid_result.best_params_
+    print("Best parameters found:", best_params)
     best_model = grid_result.best_estimator_
+
+    # predictions = best_model.predict(X_test)
+    # result_list = []
+    # for i, predict in enumerate(predictions):
+    #     sample_data = test_data_list[i]
+    #     result = ResultData(predict, sample_data.file_name)
+    #     result_list.append(result)
+
+    # write_results_to_csv(result_list, 'output.csv')
+    # evaluate_model(best_model, start, X_train, y_train, X_test, y_test, num_of_test)
+    # print_history(best_model)
+
+
+if __name__ == "__main__":
+    main()
+    judge_by_majority_form_csv()
+
+
 
     # # model = create_model(TIMESETPS, num_of_features)
     # History = best_model.fit(X_train, y_train,
@@ -273,19 +300,3 @@ def main():
     #                     validation_data=(X_test, y_test),
     #                     shuffle=True,verbose=0,
     #                     callbacks=[lr_decay, early_stop])
-
-    predictions = best_model.predict(X_test)
-    result_list = []
-    for i, predict in enumerate(predictions):
-        sample_data = test_data_list[i]
-        result = ResultData(predict, sample_data.file_name)
-        result_list.append(result)
-
-    write_results_to_csv(result_list, 'output.csv')
-    evaluate_model(best_model, start, X_train, y_train, X_test, y_test, num_of_test)
-    # print_history(best_model)
-
-
-if __name__ == "__main__":
-    main()
-    judge_by_majority_form_csv()
