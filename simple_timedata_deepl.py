@@ -254,7 +254,7 @@ def main():
     start = time()
     param_grid = {
         'batch_size': [32, 64, 256],
-        'epochs': [50],
+        'epochs': [],
         'layer_units': [[8, 8], [64, 64], [8,8,8], [64, 64, 64]],
         'activation' : ['tanh', 'relu']
         # 'dropout_rate': [0.0, 0.2],
