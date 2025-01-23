@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 
 
-EPOCH = 30                           # number of epochs
+EPOCH = 50                           # number of epochs
 BATCH = 50
 LR = 5e-2                            # learning rate of the gradient descent
 LAMBD = 0                       # lambda in L2 regularizaion
@@ -255,9 +255,7 @@ def main():
     start = time()
     param_grid = {
         'batch_size': [64, 256],
-        'epochs': [50, 100, 200],
         'layer_units': [[8, 8], [64, 64], [8,8,8], [64, 64, 64]],
-        'activation' : ['tanh', 'relu'],
         # 'dropout_rate': [0.0, 0.2],
         # 'recurrent_dropout_rate': [0.0, 0.2],
     }
